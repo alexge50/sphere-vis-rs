@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 sfml = "^0.14.0"
-glium = "*"
 glm = "^0.2.3"
+gl = "^0.6.0"
