@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "^0.32.2"
-glm = "^0.2.3"
+nalgebra-glm = "^0.4.2"
 gl = "^0.6.0"

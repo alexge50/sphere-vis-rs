@@ -1,5 +1,5 @@
 extern crate sdl2;
-extern crate glm;
+extern crate nalgebra_glm as glm;
 extern crate gl;
 
 mod shader;
