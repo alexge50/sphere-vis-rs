@@ -6,44 +6,49 @@ pub struct Sphere {
 impl Sphere {
     pub fn generate(
         radius: f32,
-        stack_count: i32,
+        ring_count: i32,
         sector_count: i32
     ) -> Sphere {
         return Sphere {
-            vertices: generate_vertices(radius, stack_count, sector_count),
-            indices: generate_indices(stack_count, sector_count)
+            vertices: generate_vertices(radius, ring_count, sector_count),
+            indices: generate_indices(ring_count, sector_count)
         };
     }
 }
 
 fn generate_vertices(
     radius: f32,
-    stack_count: i32,
+    ring_count: i32,
     sector_count: i32
 ) -> Vec<f32> {
 
     let mut vertices = Vec::<f32>::with_capacity(
-        (stack_count * sector_count * 3) as usize
+        (ring_count * sector_count * 3) as usize
     );
 
-    use std::f64::consts::PI;
+    use std::f32::consts::PI;
 
-    let sector_step: f32 = (2. * PI / (stack_count - 1) as f64) as f32;
-    let stack_step: f32 = (PI / (sector_count - 1) as f64) as f32;
+    let ring_step: f32 = 1. / (ring_count - 1) as f32;
+    let sector_step: f32 = 1. / (sector_count - 1) as f32;
 
-    for i in 0..stack_count {
-        let stack_angle: f32 = (PI as f32 / 2. - i as f32 * stack_step);
-        let z = radius * stack_angle.sin();
-        let xy = radius * stack_angle.cos();
+    let mut index = 0;
+    for r in 0..ring_count{
+        for s in 0..sector_count {
+            let x = radius *
+                (2. * PI * s as f32 * S).cos() *
+                (PI * r as f32 * ring_step).sin();
+            let y = radius *
+                (-PI / 2. + PI * r as f32 * R).sin();
+            let z = radius *
+                (2. * PI * s as f32 * S).sin() *
+                (PI * r as f32 * sector_step).sin();
 
-        for j in 0..sector_count {
-            let sector_angle = j as f32 * sector_step;
-            let x = xy * sector_angle.cos();
-            let y = xy * sector_angle.sin();
+            println!("{}: {} {} {}", index, x, y, z);
 
             vertices.push(x);
             vertices.push(y);
             vertices.push(z);
+            index += 1;
         }
     }
 
@@ -51,33 +56,20 @@ fn generate_vertices(
 }
 
 fn generate_indices(
-    stack_count: i32,
+    ring_count: i32,
     sector_count: i32
 ) -> Vec<i32> {
 
     let mut indices = Vec::<i32>::with_capacity(
-        (stack_count * sector_count * 6) as usize
+        (ring_count * sector_count * 4) as usize
     );
 
-    for i in 0..stack_count {
-        let mut k1 = i  * (sector_count + 1);
-        let mut k2 = k1 + sector_count + 1;
-
-        for j in 0..sector_count {
-            if i != 0 {
-                indices.push(k1);
-                indices.push(k2);
-                indices.push(k1 + 1);
-            }
-
-            if i != stack_count - 1 {
-                indices.push(k1 + 1);
-                indices.push(k2);
-                indices.push(k2 + 1);
-            }
-
-            k1 += 1;
-            k2 += 1;
+    for r in 0..ring_count - 1 {
+        for s in 0..sector_count - 1 {
+            indices.push(r * sector_count + s);
+            indices.push(r * sector_count + s + 1);
+            indices.push((r + 1) * sector_count + s + 1);
+            indices.push((r + 1) * sector_count + s);
         }
     }
 
