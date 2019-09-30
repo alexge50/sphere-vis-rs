@@ -35,15 +35,13 @@ fn generate_vertices(
     for r in 0..ring_count{
         for s in 0..sector_count {
             let x = radius *
-                (2. * PI * s as f32 * S).cos() *
+                (2. * PI * s as f32 * sector_step).cos() *
                 (PI * r as f32 * ring_step).sin();
             let y = radius *
-                (-PI / 2. + PI * r as f32 * R).sin();
+                (-PI / 2. + PI * r as f32 * ring_step).sin();
             let z = radius *
-                (2. * PI * s as f32 * S).sin() *
+                (2. * PI * s as f32 * sector_step).sin() *
                 (PI * r as f32 * sector_step).sin();
-
-            println!("{}: {} {} {}", index, x, y, z);
 
             vertices.push(x);
             vertices.push(y);
