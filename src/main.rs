@@ -4,14 +4,77 @@ extern crate gl;
 extern crate portaudio;
 
 use std::ffi::{CStr, CString};
+use std::sync::mpsc::channel;
 
 mod shader;
 mod sphere;
 
+const SAMPLE_RATE: f64 = 44100.;
+const FRAMES: u32 = 8192;
+
+fn wait_for_stream<F>(f: F, name: &str) -> u32
+    where
+        F: Fn() -> Result<portaudio::StreamAvailable, portaudio::error::Error>,
+{
+    'waiting_for_stream: loop {
+        match f() {
+            Ok(available) => match available {
+                portaudio::StreamAvailable::Frames(frames) => return frames as u32,
+                portaudio::StreamAvailable::InputOverflowed => println!("Input stream has overflowed"),
+                portaudio::StreamAvailable::OutputUnderflowed => {
+                    println!("Output stream has underflowed")
+                }
+            },
+            Err(err) => panic!(
+                "An error occurred while waiting for the {} stream: {}",
+                name, err
+            ),
+        }
+    }
+}
+
 fn main() {
+    let pa = portaudio::PortAudio::new().unwrap();
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
     let gl_attr = video_subsystem.gl_attr();
+
+    println!("PortAudio");
+    println!("version: {}", pa.version());
+    println!("version text: {:?}", pa.version_text());
+    println!("host count: {}", pa.host_api_count().unwrap());
+
+    let default_input = pa.default_input_device().unwrap();
+    let input_info = pa.device_info(default_input).unwrap();
+
+    println!("input device: {:#?}", &input_info);
+
+    let input_parameters = portaudio::StreamParameters::<f32>::new(
+        default_input,
+        1,
+        false,
+        input_info.default_high_input_latency
+    );
+
+    let settings = portaudio::InputStreamSettings::new(
+        input_parameters,
+        SAMPLE_RATE,
+        FRAMES
+    );
+
+    let (sender, receiver) = channel();
+
+    let callback = move |portaudio::InputStreamCallbackArgs {buffer, .. }| {
+        match sender.send(buffer) {
+            Ok(_) => portaudio::Continue,
+            Err(_) => portaudio::Abort
+        }
+    };
+
+    let mut stream =
+        pa.open_non_blocking_stream(settings, callback).expect("Unable to create stream");
+
+    stream.start().expect("Unable to start stream");
 
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(4, 0);
@@ -110,12 +173,19 @@ fn main() {
         )
     };
 
+    let mut sound_buffer: Vec<f32> = [0 as f32; FRAMES as usize].to_vec();
     let mut event_pump = sdl.event_pump().unwrap();
     'main_loop: loop{
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit {..} => break 'main_loop,
                 _ => {}
+            }
+        }
+
+        while let Ok(buffer) = receiver.try_recv() {
+            for x in 0..std::cmp::min(buffer.len(), FRAMES as usize) {
+                sound_buffer[x] = buffer[x];
             }
         }
 
