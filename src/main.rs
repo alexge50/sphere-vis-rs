@@ -2,9 +2,15 @@ extern crate sdl2;
 extern crate nalgebra_glm as glm;
 extern crate gl;
 extern crate portaudio;
+extern crate rustfft;
 
 use std::ffi::{CStr, CString};
 use std::sync::mpsc::channel;
+
+use rustfft::algorithm::Radix4;
+use rustfft::FFT;
+use rustfft::num_complex::{Complex, Complex32};
+use rustfft::num_traits::Zero;
 
 mod shader;
 mod sphere;
@@ -37,6 +43,7 @@ fn main() {
     let pa = portaudio::PortAudio::new().unwrap();
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
+    let mut timer_subsystem = sdl.timer().unwrap();
     let gl_attr = video_subsystem.gl_attr();
 
     println!("PortAudio");
@@ -173,7 +180,10 @@ fn main() {
         )
     };
 
-    let mut sound_buffer: Vec<f32> = [0 as f32; FRAMES as usize].to_vec();
+    let fft = Radix4::new(FRAMES as usize, false);
+    let mut sound_buffer: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
+    let mut output: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
+    let mut frequencies: Vec<f32> = [0. as f32; FRAMES as usize / 2].to_vec();
     let mut event_pump = sdl.event_pump().unwrap();
     'main_loop: loop{
         for event in event_pump.poll_iter() {
@@ -183,9 +193,19 @@ fn main() {
             }
         }
 
+        let mut changed = false;
         while let Ok(buffer) = receiver.try_recv() {
+            changed = true;
             for x in 0..std::cmp::min(buffer.len(), FRAMES as usize) {
-                sound_buffer[x] = buffer[x];
+                sound_buffer[x] = Complex::from(buffer[x]);
+            }
+        }
+
+        if changed {
+            fft.process(&mut sound_buffer, &mut output);
+
+            for i in 0..output.len() / 2{
+                frequencies[i] = 2. / SAMPLE_RATE as f32 * output[i].norm_sqr();
             }
         }
 
