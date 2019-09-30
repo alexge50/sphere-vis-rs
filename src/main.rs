@@ -1,6 +1,7 @@
 extern crate sdl2;
 extern crate nalgebra_glm as glm;
 extern crate gl;
+extern crate portaudio;
 
 use std::ffi::{CStr, CString};
 
