@@ -2,6 +2,8 @@ extern crate sdl2;
 extern crate nalgebra_glm as glm;
 extern crate gl;
 
+use std::ffi::{CStr, CString};
+
 mod shader;
 mod sphere;
 
@@ -45,8 +47,8 @@ fn main() {
     ).unwrap();
 
     let sphere = sphere::Sphere::generate(
-        1.0,
-        10 ,
+        10.0,
+        10,
         10
     );
 
@@ -99,6 +101,14 @@ fn main() {
         gl::Enable(gl::DEPTH_TEST);
     }
 
+    shader_program.set_used();
+    let mvp_location = unsafe {
+        gl::GetUniformLocation(
+            shader_program.id(),
+            CString::new("mvp").unwrap().as_ptr()
+        )
+    };
+
     let mut event_pump = sdl.event_pump().unwrap();
     'main_loop: loop{
         for event in event_pump.poll_iter() {
@@ -109,12 +119,41 @@ fn main() {
         }
 
         unsafe {
+            gl::Viewport(
+                0,
+                0,
+                window.size().0 as i32,
+                window.size().1 as i32
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        shader_program.set_used();
+        let mut mvp = glm::perspective(
+            1.,
+            0.78,
+            0.00001,
+            100.
+        ) * glm::look_at(
+            &glm::vec3(0., 0., 30.),
+            &glm::vec3(0., 0., 0.),
+            &glm::vec3(0., 1., 0.)
+        ) * glm::rotate(
+            &glm::identity(),
+            std::f32::consts::PI,
+            &glm::vec3(1.0, 0., 0.0)
+        );
 
+        let mvp_raw = glm::value_ptr(&mvp);
+
+        shader_program.set_used();
         unsafe {
+            gl::UniformMatrix4fv(
+                mvp_location,
+                1,
+                0,
+                mvp_raw.as_ptr()
+            );
+
             gl::BindVertexArray(vao);
             gl::DrawElements(
                 gl::LINE_STRIP,
