@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Sphere {
     pub vertices: Vec<f32>,
     pub indices: Vec<i32>,
@@ -31,7 +32,6 @@ fn generate_vertices(
     let ring_step: f32 = 1. / (ring_count - 1) as f32;
     let sector_step: f32 = 1. / (sector_count - 1) as f32;
 
-    let mut index = 0;
     for r in 0..ring_count{
         for s in 0..sector_count {
             let x = radius *
@@ -46,7 +46,6 @@ fn generate_vertices(
             vertices.push(x);
             vertices.push(y);
             vertices.push(z);
-            index += 1;
         }
     }
 

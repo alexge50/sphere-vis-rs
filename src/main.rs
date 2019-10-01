@@ -17,6 +17,9 @@ mod sphere;
 
 const SAMPLE_RATE: f64 = 44100.;
 const FRAMES: u32 = 8192;
+const RADIUS: f32 = 10.;
+const RINGS: i32 = 10;
+const SECTORS: i32 = 10;
 
 fn wait_for_stream<F>(f: F, name: &str) -> u32
     where
@@ -59,7 +62,7 @@ fn main() {
     let input_parameters = portaudio::StreamParameters::<f32>::new(
         default_input,
         1,
-        false,
+        true,
         input_info.default_high_input_latency
     );
 
@@ -118,10 +121,12 @@ fn main() {
     ).unwrap();
 
     let sphere = sphere::Sphere::generate(
-        10.0,
-        10,
-        10
+        RADIUS,
+        RINGS,
+        SECTORS
     );
+
+    let mut sphere_buffer = sphere.clone();
 
     let mut vbo: gl::types::GLuint = 0;
     let mut ebo: gl::types::GLuint = 0;
@@ -142,7 +147,7 @@ fn main() {
             gl::ELEMENT_ARRAY_BUFFER,
             (sphere.indices.len() * std::mem::size_of::<i32>()) as isize,
             sphere.indices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW
+            gl::DYNAMIC_DRAW
         );
 
         gl::GenVertexArrays(1, &mut vao);
@@ -204,8 +209,38 @@ fn main() {
         if changed {
             fft.process(&mut sound_buffer, &mut output);
 
+
             for i in 0..output.len() / 2{
-                frequencies[i] = 2. / SAMPLE_RATE as f32 * output[i].norm_sqr();
+                frequencies[i] = 1. / SAMPLE_RATE as f32 * output[i].norm_sqr();
+            }
+
+            let mut index = 0;
+
+            for ring in 1..RINGS {
+                for sector in 0..SECTORS {
+                    let p = glm::vec3(
+                        sphere.vertices[(3 * (ring * SECTORS + sector)) as usize],
+                        sphere.vertices[(3 * (ring * SECTORS + sector) + 1) as usize],
+                        sphere.vertices[(3 * (ring * SECTORS + sector) + 2) as usize]
+                    );
+
+                    let displaced = p + glm::normalize(&p) * frequencies[index] / 10.;
+                    index += 1;
+
+                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector)) as usize] = displaced.x;
+                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector) + 1) as usize] = displaced.y;
+                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector) + 2) as usize] = displaced.z;
+                }
+            }
+
+            unsafe {
+                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+                gl::BufferSubData(
+                    gl::ARRAY_BUFFER,
+                    0,
+                    (sphere_buffer.vertices.len() * std::mem::size_of::<f32>()) as isize,
+                    sphere_buffer.vertices.as_ptr() as *const gl::types::GLvoid
+                );
             }
         }
 
