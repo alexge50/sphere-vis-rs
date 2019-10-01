@@ -63,7 +63,7 @@ fn main() {
         default_input,
         1,
         true,
-        input_info.default_high_input_latency
+        input_info.default_low_input_latency
     );
 
     let settings = portaudio::InputStreamSettings::new(
@@ -211,7 +211,7 @@ fn main() {
 
 
             for i in 0..output.len() / 2{
-                frequencies[i] = 1. / SAMPLE_RATE as f32 * output[i].norm_sqr();
+                frequencies[i] = (1. / SAMPLE_RATE as f32 * output[i].norm_sqr() + 1.).log10();
             }
 
             let mut index = 0;
@@ -224,7 +224,7 @@ fn main() {
                         sphere.vertices[(3 * (ring * SECTORS + sector) + 2) as usize]
                     );
 
-                    let displaced = p + glm::normalize(&p) * frequencies[index] / 10.;
+                    let displaced = p + glm::normalize(&p) * frequencies[index];
                     index += 1;
 
                     sphere_buffer.vertices[(3 * (ring * SECTORS + sector)) as usize] = displaced.x;
@@ -255,12 +255,12 @@ fn main() {
         }
 
         let mut mvp = glm::perspective(
-            1.,
+            window.size().0 as f32 / window.size().1 as f32,
             0.78,
             0.00001,
             100.
         ) * glm::look_at(
-            &glm::vec3(0., 0., 30.),
+            &glm::vec3(0., 0., 40.),
             &glm::vec3(0., 0., 0.),
             &glm::vec3(0., 1., 0.)
         ) * glm::rotate(
