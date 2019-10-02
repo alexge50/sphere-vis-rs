@@ -32,7 +32,11 @@ fn generate_vertices(
     let ring_step: f32 = 1. / (ring_count - 1) as f32;
     let sector_step: f32 = 1. / (sector_count - 1) as f32;
 
-    for r in 0..ring_count{
+    vertices.push(0.);
+    vertices.push(-radius);
+    vertices.push(0.);
+
+    for r in 1..ring_count - 1 {
         for s in 0..sector_count {
             let x = radius *
                 (2. * PI * s as f32 * sector_step).cos() *
@@ -49,6 +53,10 @@ fn generate_vertices(
         }
     }
 
+    vertices.push(0.);
+    vertices.push(radius);
+    vertices.push(0.);
+
     return vertices;
 }
 
@@ -61,13 +69,27 @@ fn generate_indices(
         (ring_count * sector_count * 4) as usize
     );
 
-    for r in 0..ring_count - 1 {
+    let vertices_count = (ring_count - 2) * sector_count + 2;
+
+    for s in 0..sector_count - 1 {
+        indices.push(0);
+        indices.push(s + 2);
+        indices.push(s + 1);
+    }
+
+    for r in 1..ring_count - 2 {
         for s in 0..sector_count - 1 {
-            indices.push(r * sector_count + s);
+            indices.push((r - 1) * sector_count + s + 1);
+            indices.push((r - 1) * sector_count + s + 2);
+            indices.push(r * sector_count + s + 2);
             indices.push(r * sector_count + s + 1);
-            indices.push((r + 1) * sector_count + s + 1);
-            indices.push((r + 1) * sector_count + s);
         }
+    }
+
+    for s in 0..sector_count - 1 {
+        indices.push((ring_count - 3) * sector_count + s + 1);
+        indices.push((ring_count - 3) * sector_count + s + 2);
+        indices.push(vertices_count - 1);
     }
 
     return indices;
