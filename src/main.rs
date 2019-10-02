@@ -193,6 +193,9 @@ fn main() {
     let mut vertices_buffer: Vec<f32> = Vec::with_capacity(sphere.vertices.len() as usize / 3);
     vertices_buffer.resize(sphere.vertices.len() as usize / 3, 0.);
     let mut event_pump = sdl.event_pump().unwrap();
+    let mut speed = 0.;
+    let mut last_tick = timer_subsystem.ticks();
+    let mut position: f32 = 0.;
     'main_loop: loop{
         for event in event_pump.poll_iter() {
             match event {
@@ -241,9 +244,7 @@ fn main() {
                 &mut vertices_buffer.as_mut_slice()[3 * vertices_count / 4.. vertices_count - 1],
                 util::bipolar_interpolation
             );
-
-
-
+          
             for vertex_index in 0..vertices_count {
                 let p = glm::vec3(
                     sphere.vertices[(3 * vertex_index) as usize],
@@ -266,6 +267,25 @@ fn main() {
                     (sphere_buffer.vertices.len() * std::mem::size_of::<f32>()) as isize,
                     sphere_buffer.vertices.as_ptr() as *const gl::types::GLvoid
                 );
+            }
+
+            let mut max = 0.;
+
+            for x in &frequencies {
+                max = if x > &max  {
+                    *x
+                } else {
+                    max
+                }
+            }
+
+
+            let sum = frequencies.as_slice().iter().sum::<f32>();
+
+            if sum == 0. || max == 0. {
+                speed = 0.
+            } else {
+                speed = (sum / max).sin();
             }
         }
 
@@ -290,9 +310,12 @@ fn main() {
             &glm::vec3(0., 1., 0.)
         ) * glm::rotate(
             &glm::identity(),
-            std::f32::consts::PI,
-            &glm::vec3(1.0, 0., 0.0)
+            position,
+            &glm::vec3(0., -1., 0.0)
         );
+
+        position += (timer_subsystem.ticks() - last_tick) as f32 * speed / 1000.;
+        last_tick = timer_subsystem.ticks();
 
         let mvp_raw = glm::value_ptr(&mvp);
 
