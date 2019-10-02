@@ -244,7 +244,7 @@ fn main() {
                 &mut vertices_buffer.as_mut_slice()[3 * vertices_count / 4.. vertices_count - 1],
                 util::bipolar_interpolation
             );
-
+          
             for vertex_index in 0..vertices_count {
                 let p = glm::vec3(
                     sphere.vertices[(3 * vertex_index) as usize],
