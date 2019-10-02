@@ -20,8 +20,6 @@ pub fn rescale(
 
     let scale = destination.len() as f32 / source.len() as f32;
 
-    println!("rescale start");
-
     destination[0] = source[0];
     for i in 1..destination.len() {
         let last = ((i - 1) as f32 / scale).ceil();
@@ -47,7 +45,5 @@ pub fn rescale(
                 i as f32 / scale - a
             );
         }
-        println!("{}", destination[i]);
-        println!("{} {}", a, b);
     }
 }
