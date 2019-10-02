@@ -14,9 +14,10 @@ use rustfft::num_traits::Zero;
 
 mod shader;
 mod sphere;
+mod util;
 
 const SAMPLE_RATE: f64 = 44100.;
-const FRAMES: u32 = 8192;
+const FRAMES: u32 = 4096;
 const RADIUS: f32 = 10.;
 const RINGS: i32 = 10;
 const SECTORS: i32 = 10;
@@ -189,6 +190,8 @@ fn main() {
     let mut sound_buffer: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
     let mut output: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
     let mut frequencies: Vec<f32> = [0. as f32; FRAMES as usize / 2].to_vec();
+    let mut vertices_buffer: Vec<f32> = Vec::with_capacity(sphere.vertices.len() as usize / 3);
+    vertices_buffer.resize(sphere.vertices.len() as usize / 3, 0.);
     let mut event_pump = sdl.event_pump().unwrap();
     'main_loop: loop{
         for event in event_pump.poll_iter() {
@@ -209,28 +212,50 @@ fn main() {
         if changed {
             fft.process(&mut sound_buffer, &mut output);
 
-
             for i in 0..output.len() / 2{
                 frequencies[i] = (1. / SAMPLE_RATE as f32 * output[i].norm_sqr() + 1.).log10();
             }
 
-            let mut index = 0;
+            let vertices_count = sphere.vertices.len() / 3;
 
-            for ring in 1..RINGS {
-                for sector in 0..SECTORS {
-                    let p = glm::vec3(
-                        sphere.vertices[(3 * (ring * SECTORS + sector)) as usize],
-                        sphere.vertices[(3 * (ring * SECTORS + sector) + 1) as usize],
-                        sphere.vertices[(3 * (ring * SECTORS + sector) + 2) as usize]
-                    );
+            util::rescale(
+               &frequencies.as_slice()[0..100],
+               &mut vertices_buffer.as_mut_slice()[0..vertices_count / 4],
+               util::bipolar_interpolation
+            );
 
-                    let displaced = p + glm::normalize(&p) * frequencies[index];
-                    index += 1;
+            util::rescale(
+                &frequencies.as_slice()[100..frequencies.len() / 2],
+                &mut vertices_buffer.as_mut_slice()[vertices_count / 4..vertices_count / 2],
+                util::bipolar_interpolation
+            );
 
-                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector)) as usize] = displaced.x;
-                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector) + 1) as usize] = displaced.y;
-                    sphere_buffer.vertices[(3 * (ring * SECTORS + sector) + 2) as usize] = displaced.z;
-                }
+            util::rescale(
+                &frequencies.as_slice()[0..100],
+                &mut vertices_buffer.as_mut_slice()[vertices_count / 2..3 * vertices_count / 4],
+                util::bipolar_interpolation
+            );
+
+            util::rescale(
+                &frequencies.as_slice()[100..frequencies.len() / 2],
+                &mut vertices_buffer.as_mut_slice()[3 * vertices_count / 4.. vertices_count - 1],
+                util::bipolar_interpolation
+            );
+
+
+
+            for vertex_index in 0..vertices_count {
+                let p = glm::vec3(
+                    sphere.vertices[(3 * vertex_index) as usize],
+                    sphere.vertices[(3 * vertex_index + 1) as usize],
+                    sphere.vertices[(3 * vertex_index + 2) as usize]
+                );
+
+                let displaced = p + glm::normalize(&p) * vertices_buffer[vertex_index] * RADIUS;
+
+                sphere_buffer.vertices[(3 * vertex_index) as usize] = displaced.x;
+                sphere_buffer.vertices[(3 * vertex_index + 1) as usize] = displaced.y;
+                sphere_buffer.vertices[(3 * vertex_index + 2) as usize] = displaced.z;
             }
 
             unsafe {
