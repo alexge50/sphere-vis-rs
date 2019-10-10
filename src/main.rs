@@ -19,7 +19,7 @@ mod util;
 
 const SAMPLE_RATE: f64 = 44100.;
 const FRAMES: u32 = 128;
-const SLIDING_WINDOW_SIZE: u32 = 4096;
+const SLIDING_WINDOW_SIZE: u32 = 8192;
 const RADIUS: f32 = 10.;
 const RINGS: i32 = 10;
 const SECTORS: i32 = 10;
