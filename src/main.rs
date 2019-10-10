@@ -11,13 +11,15 @@ use rustfft::algorithm::Radix4;
 use rustfft::FFT;
 use rustfft::num_complex::{Complex, Complex32};
 use rustfft::num_traits::Zero;
+use std::collections::VecDeque;
 
 mod shader;
 mod sphere;
 mod util;
 
 const SAMPLE_RATE: f64 = 44100.;
-const FRAMES: u32 = 4096;
+const FRAMES: u32 = 128;
+const SLIDING_WINDOW_SIZE: u32 = 4096;
 const RADIUS: f32 = 10.;
 const RINGS: i32 = 10;
 const SECTORS: i32 = 10;
@@ -55,8 +57,8 @@ fn main() {
     println!("version text: {:?}", pa.version_text());
     println!("host count: {}", pa.host_api_count().unwrap());
 
-    let default_input = pa.default_input_device().unwrap();
-    let input_info = pa.device_info(default_input).unwrap();
+    let default_input = pa.default_input_device().expect("Unable to get default input device");
+    let input_info = pa.device_info(default_input).expect("Unable to get device info");
 
     println!("input device: {:#?}", &input_info);
 
@@ -186,12 +188,13 @@ fn main() {
         )
     };
 
-    let fft = Radix4::new(FRAMES as usize, false);
-    let mut sound_buffer: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
-    let mut output: Vec<Complex32> = [Complex::zero(); FRAMES as usize].to_vec();
-    let mut frequencies: Vec<f32> = [0. as f32; FRAMES as usize / 2].to_vec();
+    let fft = Radix4::new(SLIDING_WINDOW_SIZE as usize, false);
+    let mut sound_buffer: Vec<Complex32> = [Complex::zero(); SLIDING_WINDOW_SIZE as usize].to_vec();
+    let mut output: Vec<Complex32> = [Complex::zero(); SLIDING_WINDOW_SIZE as usize].to_vec();
+    let mut frequencies: Vec<f32> = [0. as f32; SLIDING_WINDOW_SIZE as usize / 2].to_vec();
     let mut vertices_buffer: Vec<f32> = Vec::with_capacity(sphere.vertices.len() as usize / 3);
     vertices_buffer.resize(sphere.vertices.len() as usize / 3, 0.);
+    let mut sliding_window: VecDeque<f32> = VecDeque::default();
     let mut event_pump = sdl.event_pump().unwrap();
     let mut speed = 0.;
     let mut last_tick = timer_subsystem.ticks();
@@ -208,11 +211,22 @@ fn main() {
         while let Ok(buffer) = receiver.try_recv() {
             changed = true;
             for x in 0..std::cmp::min(buffer.len(), FRAMES as usize) {
-                sound_buffer[x] = Complex::from(buffer[x]);
+                sliding_window.push_back(buffer[x]);
+            }
+
+            while sliding_window.len() > SLIDING_WINDOW_SIZE as usize {
+                sliding_window.pop_front();
             }
         }
 
-        if changed {
+        if sliding_window.len() == SLIDING_WINDOW_SIZE as usize {
+            let mut index = 0;
+
+            for x in sliding_window.iter() {
+                sound_buffer[index] = Complex::from(x);
+                index += 1;
+            }
+
             fft.process(&mut sound_buffer, &mut output);
 
             for i in 0..output.len() / 2{
